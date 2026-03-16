@@ -1,14 +1,13 @@
 import { AfterViewInit, Component, effect, ElementRef, signal, viewChild } from '@angular/core';
 import mapboxgl from 'mapbox-gl'; // or "const mapboxgl = require('mapbox-gl');"
 import { environment } from '../../../environments/environment';
-import { every } from 'rxjs';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, JsonPipe } from '@angular/common';
 
 mapboxgl.accessToken = environment.mapboxKey
 
 @Component({
   selector: 'app-fullscreen-map-page',
-  imports: [ DecimalPipe ],
+  imports: [ DecimalPipe, JsonPipe ],
   templateUrl: './fullscreen-map-page.html',
   styles: `
     div {
@@ -34,7 +33,12 @@ export class FullscreenMapPage implements AfterViewInit {
   divElement = viewChild<ElementRef>('map');
   map = signal<mapboxgl.Map | null>(null)
 
-  zoom = signal(13)
+  zoom = signal(13);
+  coordinates = signal({
+    lng: -8.4115,
+    lat: 43.3623
+
+  });
 
   zoomEffect = effect(() => {
     if (!this.map())  return;
@@ -51,12 +55,12 @@ export class FullscreenMapPage implements AfterViewInit {
     await new Promise((resolve) => setTimeout(resolve, 80))
 
     const element = this.divElement()!.nativeElement;
-    console.log(element)
+    const { lat, lng } = this.coordinates();
 
     const map = new mapboxgl.Map({
       container: element, // container ID
       style: 'mapbox://styles/mapbox/streets-v12', // style URL
-      center: [-8.4115, 43.3623], // A Coruña [lng, lat]
+      center: [lng, lat], // A Coruña [lng, lat]
       zoom: this.zoom(), // starting zoom
     });
 
@@ -69,6 +73,19 @@ export class FullscreenMapPage implements AfterViewInit {
       const newZoom = event.target.getZoom()
       this.zoom.set(newZoom)
     })
+
+    map.on('moveend', () => {
+      const center = map.getCenter();
+      this.coordinates.set(center)
+    });
+
+    map.on('load', () => {
+      console.log('Map loaded')
+    })
+
+    map.addControl(new mapboxgl.FullscreenControl());
+    map.addControl(new mapboxgl.NavigationControl());
+    map.addControl(new mapboxgl.ScaleControl());
 
     this.map.set(map);
   }
